@@ -40,8 +40,10 @@ int main(int argc, char *argv[])
         //we can get away with this because minimum page size is 256 bytes
 
 
-    //Now, start one of the algorithms, within a function, print results, reset any changes made to the data structures above
+    //Now, start one of the algorithms, within a function that has arguments passeed to it, print results, reset any changes made to the data structures above
+    
     //repeat for the other two algorithms
+        //note that LRU needs some additional data structures to figure out which is the least recently used (referenced) page
 
 
     //***NEED to add more skeletons for the other functions in this program.
