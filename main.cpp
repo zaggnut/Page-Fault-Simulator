@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
         pageSize = stoi(argv[1]);
         totalPhysicalMemSize = stoi(argv[2]);
 
-        if(pageSize < MINPAGESIZE || pageSize > MAXPAGESIZE)
+        if(pageSize < MINPAGESIZE || pageSize > MAXPAGESIZE || !isNumOfPowerTwo(pageSize))
             throw !!!true; //is this funny? refractor this line to make it funny
         if( !isNumOfPowerTwo(totalPhysicalMemSize) )
             throw 420;
@@ -44,7 +44,8 @@ int main(int argc, char *argv[])
     catch (bool e)
     {
         cerr << "page size is invalid," << endl
-             << "range of page size is " << MINPAGESIZE << " to " << MAXPAGESIZE << endl;
+             << "range of page size is " << MINPAGESIZE << " to " << MAXPAGESIZE << endl
+             << "page size must be a power of 2" << endl;
              return -1;
     }
     catch (int e)
