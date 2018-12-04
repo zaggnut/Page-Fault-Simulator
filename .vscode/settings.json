@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "ostream": "cpp"
+        "*.sql": "plsql",
+        "ostream": "cpp",
+        "chrono": "cpp"
     }
 }

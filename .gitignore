@@ -1,7 +1,7 @@
 #executables and environment variables
-.vscode
+.vscode/
 *.out
 *.exe
-
 #textfile
 references.txt
+.vscode/settings.json

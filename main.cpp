@@ -6,6 +6,8 @@
     Purpose:
 */
 
+#include <algorithm>
+#include <chrono>
 #include <iostream>
 #include <iomanip>
 #include <vector>
@@ -13,6 +15,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <queue>
+#include <random>
 #include <time.h>   //for time functions
 #include <stdlib.h> //for srand/rand functions
 #include "page.hpp"
@@ -25,8 +28,11 @@ const int MINPAGESIZE = 256;
 const int MAXVIRTUALMEM = 134217728;
 const int MAXNUMREFERENCES = 5000001;
 
-bool isNumOfPowerTwo(int param);                                                                                //checks if number is power of 2, such that there is an N such that (2^N == the number)
-void fifoPages(const int addresses[], const int pageSize, const int maxPagesInMemory, const int numReferences); //fifo algorithm
+bool isNumOfPowerTwo(int param); //checks if number is power of 2, such that there is an N such that (2^N == the number)
+void fifoPages(const int addresses[], const int pageSize,
+               const int maxPagesInMemory, const int numReferences); //fifo algorithm
+void randomPages(const int addresses[], const int pageSize,
+                 const int maxPagesInMemory, const int numReferences); //random algorithm
 
 int main(int argc, char *argv[])
 {
@@ -95,10 +101,10 @@ int main(int argc, char *argv[])
     //we can get away with this because minimum page size is 256 bytes
 
     //Now, start one of the algorithms, within a function that has arguments passeed to it, print results, reset any changes made to the data structures above
-
+    fifoPages(addresses, pageSize, maxPagesInMemory, numLines);
     //repeat for the other two algorithms
     //note that LRU needs some additional data structures to figure out which is the least recently used (referenced) page
-
+    randomPages(addresses, pageSize, maxPagesInMemory, numLines);
     //***NEED to add more skeletons for the other functions in this program.
     //***they will need parameters to do their jerbs
     delete[] addresses;
@@ -117,13 +123,16 @@ bool isNumOfPowerTwo(int numberToTest)
         return false;
 }
 
-void fifoPages(const int addresses[], const int pageSize, const int maxPagesInMemory, const int numReferences)
+void fifoPages(const int addresses[], const int pageSize,
+               const int maxPagesInMemory, const int numReferences)
 {
     queue<int> fifo;
     unordered_map<int, page *> physicalMemory;
+    physicalMemory.reserve(maxPagesInMemory);
     page *virtualMem = new page[MAXVIRTUALMEM / pageSize];
     int pageAddress;
     bool isWrite;
+    auto t1 = chrono::high_resolution_clock::now();
     for (int i = 0; i < numReferences; i++)
     {
         isWrite = ((addresses[i] & 1) == 1);
@@ -142,6 +151,50 @@ void fifoPages(const int addresses[], const int pageSize, const int maxPagesInMe
         }
         physicalMemory.at(pageAddress)->writtenTo = isWrite;
     }
+    auto t2 = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+    cout << "the fifo algorithm took: " << duration << " microseconds" << endl;
     physicalMemory.clear();
+    delete[] virtualMem;
+}
+
+void randomPages(const int addresses[], const int pageSize,
+                 const int maxPagesInMemory, const int numReferences)
+{
+    unsigned seed = chrono::system_clock::now().time_since_epoch().count();
+    default_random_engine rand(seed);
+    page *virtualMem = new page[MAXVIRTUALMEM / pageSize];
+    unordered_map<int, page *> physicalMemory;
+    vector<int> pagesInMemory;
+    physicalMemory.reserve(maxPagesInMemory);
+    pagesInMemory.reserve(maxPagesInMemory);
+    int pageAddress;
+    bool isWrite;
+    auto t1 = chrono::high_resolution_clock::now();
+    for (int i = 0; i < numReferences; i++)
+    {
+        isWrite = ((addresses[i] & 1) == 1);
+        pageAddress = addresses[i] / pageSize;
+        if (physicalMemory.find(pageAddress) == physicalMemory.end())
+        {
+            if (physicalMemory.size() >= maxPagesInMemory)
+            {
+                unsigned indexToRemove = rand() % pagesInMemory.size();
+                physicalMemory.at(pagesInMemory[indexToRemove])->valid = false;
+                physicalMemory.erase(pagesInMemory[indexToRemove]);
+                iter_swap(pagesInMemory.begin() + indexToRemove, pagesInMemory.end() - 1);
+                pagesInMemory.pop_back();
+            }
+            physicalMemory[pageAddress] = &virtualMem[pageAddress];
+            physicalMemory[pageAddress]->valid = true;
+            pagesInMemory.push_back(pageAddress);
+        }
+        physicalMemory.at(pageAddress)->writtenTo = isWrite;
+    }
+    auto t2 = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+    cout << "the random algorithm took: " << duration << " microseconds" << endl;
+    physicalMemory.clear();
+    pagesInMemory.clear();
     delete[] virtualMem;
 }
