@@ -16,6 +16,7 @@
 #include <unordered_map>
 #include <queue>
 #include <random>
+#include <utility>
 #include <time.h>   //for time functions
 #include <stdlib.h> //for srand/rand functions
 #include "page.hpp"
@@ -33,6 +34,8 @@ void fifoPages(const int addresses[], const int pageSize,
                const int maxPagesInMemory, const int numReferences); //fifo algorithm
 void randomPages(const int addresses[], const int pageSize,
                  const int maxPagesInMemory, const int numReferences); //random algorithm
+void leastRecentlyAccessed(const int addresses[], const int pageSize,
+                           const int maxPagesInMemory, const int numReferences); //LRA algorithm
 
 int main(int argc, char *argv[])
 {
@@ -105,6 +108,7 @@ int main(int argc, char *argv[])
     //repeat for the other two algorithms
     //note that LRU needs some additional data structures to figure out which is the least recently used (referenced) page
     randomPages(addresses, pageSize, maxPagesInMemory, numLines);
+    leastRecentlyAccessed(addresses, pageSize, maxPagesInMemory, numLines);
     //***NEED to add more skeletons for the other functions in this program.
     //***they will need parameters to do their jerbs
     delete[] addresses;
@@ -196,5 +200,58 @@ void randomPages(const int addresses[], const int pageSize,
     cout << "the random algorithm took: " << duration << " microseconds" << endl;
     physicalMemory.clear();
     pagesInMemory.clear();
+    delete[] virtualMem;
+}
+
+void leastRecentlyAccessed(const int addresses[], const int pageSize,
+                           const int maxPagesInMemory, const int numReferences)
+{
+    page *virtualMem = new page[MAXVIRTUALMEM / pageSize];
+    unordered_map<int, page *> physicalMemory;
+    vector<pair<int, int>> lastAccessTime; //first is accessTime, second is ID
+    lastAccessTime.reserve(maxPagesInMemory);
+    physicalMemory.reserve(maxPagesInMemory);
+    int pageAddress;
+    bool isWrite;
+    auto t1 = chrono::high_resolution_clock::now();
+    for (int i = 0; i < numReferences; i++)
+    {
+        isWrite = ((addresses[i] & 1) == 1); //odd or even?
+        pageAddress = addresses[i] / pageSize;
+        if (physicalMemory.find(pageAddress) == physicalMemory.end()) //page isn't in memory
+        {
+            if (physicalMemory.size() >= maxPagesInMemory) //need to evict a page
+            {
+                int pageIDtoRemove = lastAccessTime[lastAccessTime.size() - 1].second;
+                lastAccessTime.pop_back();
+                physicalMemory.erase(pageIDtoRemove);
+                virtualMem[pageAddress].valid = false;
+                virtualMem[pageAddress].writtenTo = false;
+            }
+            physicalMemory[pageAddress] = &virtualMem[pageAddress];
+            physicalMemory[pageAddress]->valid = true;
+            lastAccessTime.push_back(make_pair(i, virtualMem[pageAddress].pageID));
+        }
+        physicalMemory.at(pageAddress)->writtenTo = isWrite;
+        auto it = find_if(lastAccessTime.begin(), lastAccessTime.end(),
+                          [pageAddress](const pair<int, int> &p) {
+                              return p.second == pageAddress;
+                          });
+        it->first = i;
+        sort(lastAccessTime.begin(), lastAccessTime.end(),
+             [](const pair<int, int> &a, const pair<int, int> &b) {
+                 return a.first > b.first;
+             }); //ensure lowest accessTime is last
+    }
+    auto t2 = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+    cout << "the LRA algorithm took: " << duration << " microseconds" << endl;
+    physicalMemory.clear();
+    /*for_each(lastAccessTime.begin(), lastAccessTime.end(),
+             [](const pair<int, int> &p) { //print the last access array to see if it's sorted right
+                 cout << p.first << " ";
+             });*/
+    cout << endl;
+    lastAccessTime.clear();
     delete[] virtualMem;
 }
