@@ -17,6 +17,7 @@
 #include <queue>
 #include <random>
 #include <utility>
+#include <math.h>
 #include <time.h>   //for time functions
 #include <stdlib.h> //for srand/rand functions
 #include "page.hpp"
@@ -134,13 +135,14 @@ void fifoPages(const int addresses[], const int pageSize,
     unordered_map<int, page *> physicalMemory;
     physicalMemory.reserve(maxPagesInMemory);
     page *virtualMem = new page[MAXVIRTUALMEM / pageSize];
+    int toShift = log2(pageSize); //shifting is faster than dividing, know its a power of 2
     int pageAddress;
     bool isWrite;
     auto t1 = chrono::high_resolution_clock::now();
     for (int i = 0; i < numReferences; i++)
     {
         isWrite = ((addresses[i] & 1) == 1);
-        pageAddress = addresses[i] / pageSize;
+        pageAddress = addresses[i] >> toShift; //same as dividing by pageSize
         if (physicalMemory.find(pageAddress) == physicalMemory.end())
         {
             if (physicalMemory.size() >= maxPagesInMemory)
@@ -172,13 +174,14 @@ void randomPages(const int addresses[], const int pageSize,
     vector<int> pagesInMemory;
     physicalMemory.reserve(maxPagesInMemory);
     pagesInMemory.reserve(maxPagesInMemory);
+    int toShift = log2(pageSize);
     int pageAddress;
     bool isWrite;
     auto t1 = chrono::high_resolution_clock::now();
     for (int i = 0; i < numReferences; i++)
     {
         isWrite = ((addresses[i] & 1) == 1);
-        pageAddress = addresses[i] / pageSize;
+        pageAddress = addresses[i] >> toShift;
         if (physicalMemory.find(pageAddress) == physicalMemory.end())
         {
             if (physicalMemory.size() >= maxPagesInMemory)
@@ -211,13 +214,14 @@ void leastRecentlyAccessed(const int addresses[], const int pageSize,
     vector<pair<int, int>> lastAccessTime; //first is accessTime, second is ID
     lastAccessTime.reserve(maxPagesInMemory);
     physicalMemory.reserve(maxPagesInMemory);
+    int toShift = log2(pageSize);
     int pageAddress;
     bool isWrite;
     auto t1 = chrono::high_resolution_clock::now();
     for (int i = 0; i < numReferences; i++)
     {
         isWrite = ((addresses[i] & 1) == 1); //odd or even?
-        pageAddress = addresses[i] / pageSize;
+        pageAddress = addresses[i] >> toShift;
         if (physicalMemory.find(pageAddress) == physicalMemory.end()) //page isn't in memory
         {
             if (physicalMemory.size() >= maxPagesInMemory) //need to evict a page
@@ -237,7 +241,7 @@ void leastRecentlyAccessed(const int addresses[], const int pageSize,
                           [pageAddress](const pair<int, int> &p) {
                               return p.second == pageAddress;
                           });
-        it->first = i;
+        it->first = i; //first is last access time
         sort(lastAccessTime.begin(), lastAccessTime.end(),
              [](const pair<int, int> &a, const pair<int, int> &b) {
                  return a.first > b.first;
@@ -247,11 +251,6 @@ void leastRecentlyAccessed(const int addresses[], const int pageSize,
     auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
     cout << "the LRA algorithm took: " << duration << " microseconds" << endl;
     physicalMemory.clear();
-    /*for_each(lastAccessTime.begin(), lastAccessTime.end(),
-             [](const pair<int, int> &p) { //print the last access array to see if it's sorted right
-                 cout << p.first << " ";
-             });*/
-    cout << endl;
     lastAccessTime.clear();
     delete[] virtualMem;
 }
