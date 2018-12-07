@@ -3,7 +3,9 @@
     Date Created: 11/30/2018
     Last Modification: 12/03/2018
     Title:  Page Replacement Alogrithm Simulations
-    Purpose:
+    Purpose: This program simulates 3 page replacement algorithms.  FIFO, Random
+             and LRU are simulated to compare their results against the same
+             simulated stream of process memory requests.
 */
 
 #include <algorithm>
@@ -30,6 +32,7 @@ const int MINPAGESIZE = 256;
 const int MAXVIRTUALMEM = 134217728;
 const int MAXNUMREFERENCES = 5000001;
 
+void printSimulationData(int numberOfRef, long long duration, long numPageFaults, long numPageReplacements, long numFlushes);
 bool isNumOfPowerTwo(int param); //checks if number is power of 2, such that there is an N such that (2^N == the number)
 void fifoPages(const int addresses[], const int pageSize,
                const int maxPagesInMemory, const int numReferences); //fifo algorithm
@@ -37,6 +40,7 @@ void randomPages(const int addresses[], const int pageSize,
                  const int maxPagesInMemory, const int numReferences); //random algorithm
 void leastRecentlyAccessed(const int addresses[], const int pageSize,
                            const int maxPagesInMemory, const int numReferences); //LRA algorithm
+
 
 int main(int argc, char *argv[])
 {
@@ -82,13 +86,8 @@ int main(int argc, char *argv[])
 
     //determine what is the max number of pages, in the page table, that can be valid all at once (determined by user's input)
     int maxPagesInMemory = totalPhysicalMemSize / pageSize;
-    //create a data structure for physical memory (initially empty)
-    //need to be able to keep track of which frames of the physical memory are free
 
-    //create a data structure for page table (all page table entries are invalid)
-    //need to be able to keep track of page#, referenced frame, dirty or not, valid or not, etc....
-
-    //read in the huge references.txt file into a data structure (can be done with ifstream)
+    //reads in the huge references.txt file into a data structure (the fstream library is used here)
     ifstream references;
     references.open("references.txt", ios::in);
     int *addresses = new int[MAXNUMREFERENCES];
@@ -105,13 +104,14 @@ int main(int argc, char *argv[])
     //we can get away with this because minimum page size is 256 bytes
 
     //Now, start one of the algorithms, within a function that has arguments passeed to it, print results, reset any changes made to the data structures above
+    cout << "FIFO Algorithm" << endl;
     fifoPages(addresses, pageSize, maxPagesInMemory, numLines);
-    //repeat for the other two algorithms
-    //note that LRU needs some additional data structures to figure out which is the least recently used (referenced) page
+
+    cout << "Random Algorithm" << endl;
     randomPages(addresses, pageSize, maxPagesInMemory, numLines);
+
+    cout << "Least Recently Used Algorithm" << endl;
     leastRecentlyAccessed(addresses, pageSize, maxPagesInMemory, numLines);
-    //***NEED to add more skeletons for the other functions in this program.
-    //***they will need parameters to do their jerbs
     delete[] addresses;
     return 0;
 }
@@ -128,6 +128,19 @@ bool isNumOfPowerTwo(int numberToTest)
         return false;
 }
 
+/*
+    prints out the resulting info of an algorithm
+*/
+void printSimulationData(int numberOfRef, long long duration, long numPageFaults, long numPageReplacements, long numFlushes)
+{
+    cout << "Number of Addresses Referenced: " << numberOfRef << endl;
+    cout << "The algorithm took: " << duration << " microseconds" << endl;
+    cout << "The Number Of Page Faults: " << numPageFaults << endl;
+    cout << "The number of times a page was replaced: " << numPageReplacements << endl;
+    cout << "The number of flushes: " << numFlushes << endl;
+    cout << endl;
+}
+
 void fifoPages(const int addresses[], const int pageSize,
                const int maxPagesInMemory, const int numReferences)
 {
@@ -138,16 +151,26 @@ void fifoPages(const int addresses[], const int pageSize,
     int toShift = log2(pageSize); //shifting is faster than dividing, know its a power of 2
     int pageAddress;
     bool isWrite;
+    long numPageFaults = 0;
+    long numPageReplacements = 0;
+    long numFlushes = 0;
     auto t1 = chrono::high_resolution_clock::now();
     for (int i = 0; i < numReferences; i++)
     {
-        isWrite = ((addresses[i] & 1) == 1);
+        isWrite = ((addresses[i] & 1) == 1);//check's the binary of the referenced address, if last bit is 1 ==> its a write
         pageAddress = addresses[i] >> toShift; //same as dividing by pageSize
-        if (physicalMemory.find(pageAddress) == physicalMemory.end())
+        if (physicalMemory.find(pageAddress) == physicalMemory.end()) //if the reference is not in the physical memory
         {
-            if (physicalMemory.size() >= maxPagesInMemory)
+            ++numPageFaults;
+            
+            if (physicalMemory.size() >= maxPagesInMemory) //the physical memory is overloaded, need a victim page to evict out of memory!!!
             {
+                ++numPageReplacements;
                 physicalMemory.at(fifo.front())->valid = false;
+
+                if(physicalMemory.at(fifo.front())->writtenTo == true) //this page that is going to be deleted is dirty (written to), therefore a flush will occur
+                    ++numFlushes;
+
                 physicalMemory.erase(fifo.front());
                 fifo.pop();
             }
@@ -159,7 +182,9 @@ void fifoPages(const int addresses[], const int pageSize,
     }
     auto t2 = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
-    cout << "the fifo algorithm took: " << duration << " microseconds" << endl;
+
+
+    printSimulationData(numReferences, duration, numPageFaults, numPageReplacements, numFlushes);
     physicalMemory.clear();
     delete[] virtualMem;
 }
@@ -177,17 +202,28 @@ void randomPages(const int addresses[], const int pageSize,
     int toShift = log2(pageSize);
     int pageAddress;
     bool isWrite;
+    long numPageFaults = 0;
+    long numPageReplacements = 0;
+    long numFlushes = 0;
     auto t1 = chrono::high_resolution_clock::now();
     for (int i = 0; i < numReferences; i++)
     {
         isWrite = ((addresses[i] & 1) == 1);
         pageAddress = addresses[i] >> toShift;
-        if (physicalMemory.find(pageAddress) == physicalMemory.end())
+        if (physicalMemory.find(pageAddress) == physicalMemory.end()) //if reference is not in the physical memory
         {
-            if (physicalMemory.size() >= maxPagesInMemory)
+            ++numPageFaults;
+
+            if (physicalMemory.size() >= maxPagesInMemory) //physical memory is full (overflowed), need to remove a victim page
             {
+                ++numPageReplacements;
+
                 unsigned indexToRemove = rand() % pagesInMemory.size();
                 physicalMemory.at(pagesInMemory[indexToRemove])->valid = false;
+
+                if(physicalMemory.at(pagesInMemory[indexToRemove])->writtenTo == true)
+                    ++numFlushes;
+
                 physicalMemory.erase(pagesInMemory[indexToRemove]);
                 iter_swap(pagesInMemory.begin() + indexToRemove, pagesInMemory.end() - 1);
                 pagesInMemory.pop_back();
@@ -200,7 +236,8 @@ void randomPages(const int addresses[], const int pageSize,
     }
     auto t2 = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
-    cout << "the random algorithm took: " << duration << " microseconds" << endl;
+
+    printSimulationData(numReferences, duration, numPageFaults, numPageReplacements, numFlushes);
     physicalMemory.clear();
     pagesInMemory.clear();
     delete[] virtualMem;
@@ -217,6 +254,9 @@ void leastRecentlyAccessed(const int addresses[], const int pageSize,
     int toShift = log2(pageSize);
     int pageAddress;
     bool isWrite;
+    long numPageFaults = 0;
+    long numPageReplacements = 0;
+    long numFlushes = 0;
     auto t1 = chrono::high_resolution_clock::now();
     for (int i = 0; i < numReferences; i++)
     {
@@ -224,10 +264,18 @@ void leastRecentlyAccessed(const int addresses[], const int pageSize,
         pageAddress = addresses[i] >> toShift;
         if (physicalMemory.find(pageAddress) == physicalMemory.end()) //page isn't in memory
         {
+            ++numPageFaults;
+
             if (physicalMemory.size() >= maxPagesInMemory) //need to evict a page
             {
+                ++numPageReplacements;
+
                 int pageIDtoRemove = lastAccessTime[lastAccessTime.size() - 1].second;
                 lastAccessTime.pop_back();
+
+                //if(physicalMemory.at(pageIDtoRemove)->writtenTo == true)
+                  //  ++numFlushes;
+
                 physicalMemory.erase(pageIDtoRemove);
                 virtualMem[pageAddress].valid = false;
                 virtualMem[pageAddress].writtenTo = false;
@@ -249,7 +297,8 @@ void leastRecentlyAccessed(const int addresses[], const int pageSize,
     }
     auto t2 = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
-    cout << "the LRA algorithm took: " << duration << " microseconds" << endl;
+
+    printSimulationData(numReferences, duration, numPageFaults, numPageReplacements, numFlushes);
     physicalMemory.clear();
     lastAccessTime.clear();
     delete[] virtualMem;
