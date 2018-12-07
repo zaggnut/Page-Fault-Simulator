@@ -34,12 +34,12 @@ const int MAXNUMREFERENCES = 5000001;
 
 void printSimulationData(int numberOfRef, long long duration, long numPageFaults, long numPageReplacements, long numFlushes);
 bool isNumOfPowerTwo(int param); //checks if number is power of 2, such that there is an N such that (2^N == the number)
-void fifoPages(const int addresses[], const int pageSize,
-               const int maxPagesInMemory, const int numReferences); //fifo algorithm
-void randomPages(const int addresses[], const int pageSize,
-                 const int maxPagesInMemory, const int numReferences); //random algorithm
-void leastRecentlyAccessed(const int addresses[], const int pageSize,
-                           const int maxPagesInMemory, const int numReferences); //LRA algorithm
+void fifoPages(const int addresses[], const size_t pageSize,
+               const size_t maxPagesInMemory, const size_t numReferences); //fifo algorithm
+void randomPages(const int addresses[], const size_t pageSize,
+                 const size_t maxPagesInMemory, const size_t numReferences); //random algorithm
+void leastRecentlyAccessed(const int addresses[], const size_t pageSize,
+                           const size_t maxPagesInMemory, const size_t numReferences); //LRA algorithm
 
 int main(int argc, char *argv[])
 {
@@ -49,8 +49,8 @@ int main(int argc, char *argv[])
     //process the command line arguments for this program
     //the 1st argument should be set page size( A number of power 2 (2^N) that is between 256 (2^8) and 8192 (2^13) )
     //the 2nd argument should be the total physical memory size of the main memory (is a number of power 2)
-    int pageSize = 0;
-    int totalPhysicalMemSize = 0;
+    size_t pageSize = 0;
+    size_t totalPhysicalMemSize = 0;
     try
     {
         pageSize = stoi(argv[1]);
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
     }
 
     //determine what is the max number of pages, in the page table, that can be valid all at once (determined by user's input)
-    int maxPagesInMemory = totalPhysicalMemSize / pageSize;
+    size_t maxPagesInMemory = totalPhysicalMemSize / pageSize;
 
     //reads in the huge references.txt file into a data structure (the fstream library is used here)
     ifstream references;
@@ -140,8 +140,8 @@ void printSimulationData(int numberOfRef, long long duration, long numPageFaults
     cout << endl;
 }
 
-void fifoPages(const int addresses[], const int pageSize,
-               const int maxPagesInMemory, const int numReferences)
+void fifoPages(const int addresses[], const size_t pageSize,
+               const size_t maxPagesInMemory, const size_t numReferences)
 {
     queue<int> fifo;
     unordered_map<int, page *> physicalMemory;
@@ -154,7 +154,7 @@ void fifoPages(const int addresses[], const int pageSize,
     long numPageReplacements = 0;
     long numFlushes = 0;
     auto t1 = chrono::high_resolution_clock::now();
-    for (int i = 0; i < numReferences; i++)
+    for (size_t i = 0; i < numReferences; i++)
     {
         isWrite = ((addresses[i] & 1) == 1);                          //check's the binary of the referenced address, if last bit is 1 ==> its a write
         pageAddress = addresses[i] >> toShift;                        //same as dividing by pageSize
@@ -187,8 +187,8 @@ void fifoPages(const int addresses[], const int pageSize,
     delete[] virtualMem;
 }
 
-void randomPages(const int addresses[], const int pageSize,
-                 const int maxPagesInMemory, const int numReferences)
+void randomPages(const int addresses[], const size_t pageSize,
+                 const size_t maxPagesInMemory, const size_t numReferences)
 {
     unsigned seed = chrono::system_clock::now().time_since_epoch().count();
     default_random_engine rand(seed);
@@ -204,7 +204,7 @@ void randomPages(const int addresses[], const int pageSize,
     long numPageReplacements = 0;
     long numFlushes = 0;
     auto t1 = chrono::high_resolution_clock::now();
-    for (int i = 0; i < numReferences; i++)
+    for (size_t i = 0; i < numReferences; i++)
     {
         isWrite = ((addresses[i] & 1) == 1);
         pageAddress = addresses[i] >> toShift;
@@ -241,8 +241,8 @@ void randomPages(const int addresses[], const int pageSize,
     delete[] virtualMem;
 }
 
-void leastRecentlyAccessed(const int addresses[], const int pageSize,
-                           const int maxPagesInMemory, const int numReferences)
+void leastRecentlyAccessed(const int addresses[], const size_t pageSize,
+                           const size_t maxPagesInMemory, const size_t numReferences)
 {
     page *virtualMem = new page[MAXVIRTUALMEM / pageSize];
     unordered_map<int, page *> physicalMemory;
@@ -256,7 +256,7 @@ void leastRecentlyAccessed(const int addresses[], const int pageSize,
     long numPageReplacements = 0;
     long numFlushes = 0;
     auto t1 = chrono::high_resolution_clock::now();
-    for (int i = 0; i < numReferences; i++)
+    for (size_t i = 0; i < numReferences; i++)
     {
         isWrite = ((addresses[i] & 1) == 1); //odd or even?
         pageAddress = addresses[i] >> toShift;
