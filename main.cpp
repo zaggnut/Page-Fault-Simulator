@@ -41,7 +41,6 @@ void randomPages(const int addresses[], const int pageSize,
 void leastRecentlyAccessed(const int addresses[], const int pageSize,
                            const int maxPagesInMemory, const int numReferences); //LRA algorithm
 
-
 int main(int argc, char *argv[])
 {
     cout << "Created By Shane Laskowski and Michael Lingo" << endl
@@ -157,18 +156,18 @@ void fifoPages(const int addresses[], const int pageSize,
     auto t1 = chrono::high_resolution_clock::now();
     for (int i = 0; i < numReferences; i++)
     {
-        isWrite = ((addresses[i] & 1) == 1);//check's the binary of the referenced address, if last bit is 1 ==> its a write
-        pageAddress = addresses[i] >> toShift; //same as dividing by pageSize
+        isWrite = ((addresses[i] & 1) == 1);                          //check's the binary of the referenced address, if last bit is 1 ==> its a write
+        pageAddress = addresses[i] >> toShift;                        //same as dividing by pageSize
         if (physicalMemory.find(pageAddress) == physicalMemory.end()) //if the reference is not in the physical memory
         {
             ++numPageFaults;
-            
+
             if (physicalMemory.size() >= maxPagesInMemory) //the physical memory is overloaded, need a victim page to evict out of memory!!!
             {
                 ++numPageReplacements;
                 physicalMemory.at(fifo.front())->valid = false;
 
-                if(physicalMemory.at(fifo.front())->writtenTo == true) //this page that is going to be deleted is dirty (written to), therefore a flush will occur
+                if (physicalMemory.at(fifo.front())->writtenTo == true) //this page that is going to be deleted is dirty (written to), therefore a flush will occur
                     ++numFlushes;
 
                 physicalMemory.erase(fifo.front());
@@ -182,7 +181,6 @@ void fifoPages(const int addresses[], const int pageSize,
     }
     auto t2 = chrono::high_resolution_clock::now();
     auto duration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
-
 
     printSimulationData(numReferences, duration, numPageFaults, numPageReplacements, numFlushes);
     physicalMemory.clear();
@@ -221,7 +219,7 @@ void randomPages(const int addresses[], const int pageSize,
                 unsigned indexToRemove = rand() % pagesInMemory.size();
                 physicalMemory.at(pagesInMemory[indexToRemove])->valid = false;
 
-                if(physicalMemory.at(pagesInMemory[indexToRemove])->writtenTo == true)
+                if (physicalMemory.at(pagesInMemory[indexToRemove])->writtenTo == true)
                     ++numFlushes;
 
                 physicalMemory.erase(pagesInMemory[indexToRemove]);
@@ -270,19 +268,25 @@ void leastRecentlyAccessed(const int addresses[], const int pageSize,
             {
                 ++numPageReplacements;
 
-                int pageIDtoRemove = lastAccessTime[lastAccessTime.size() - 1].second;
+                int pageAddresstoRemove = lastAccessTime[lastAccessTime.size() - 1].second;
                 lastAccessTime.pop_back();
-
-                //if(physicalMemory.at(pageIDtoRemove)->writtenTo == true)
-                  //  ++numFlushes;
-
-                physicalMemory.erase(pageIDtoRemove);
+                try
+                {
+                    if (physicalMemory.at(pageAddresstoRemove)->writtenTo == true)
+                        ++numFlushes;
+                }
+                catch (out_of_range &e)
+                {
+                    cout << pageAddresstoRemove << endl;
+                    exit(1);
+                }
+                physicalMemory.erase(pageAddresstoRemove);
                 virtualMem[pageAddress].valid = false;
                 virtualMem[pageAddress].writtenTo = false;
             }
             physicalMemory[pageAddress] = &virtualMem[pageAddress];
             physicalMemory[pageAddress]->valid = true;
-            lastAccessTime.push_back(make_pair(i, virtualMem[pageAddress].pageID));
+            lastAccessTime.push_back(make_pair(i, pageAddress));
         }
         physicalMemory.at(pageAddress)->writtenTo = isWrite;
         auto it = find_if(lastAccessTime.begin(), lastAccessTime.end(),
